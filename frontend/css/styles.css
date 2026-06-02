@@ -1,0 +1,133 @@
+.main-body {
+  background-color: #2E3047;
+}
+.main-header {
+  background-color: #3c3f58;
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  z-index: 2;
+  right: 25%;
+  left: 25%;
+  top: 0px;
+  width: 50%;
+  height: 50px;
+  padding: 2px;
+  border: 2px solid #707793;
+  border-top: none;
+  border-bottom-right-radius: 20px;
+  border-bottom-left-radius: 20px;
+}
+.menu-button {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  align-content: stretch;
+  flex-shrink: 0;
+  align-self: center;
+  width: 45px;
+  height: 45px;
+  padding: 0px;
+  margin: 0px;
+  font-size: 20px;
+  font-weight: normal;
+  color: #3BBA9C;
+  text-align: center;
+  background-color: #3c3f58;
+  border-radius: 50%;
+  border-width: 0px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.menu-button:hover {
+  color: #68d6bc
+}
+
+.menu-button:active {
+  transition: all 0.05s ease;
+  transform: scale(0.96);
+}
+
+.icon {
+  fill: currentColor;
+  width: 45px;
+  height: 45px;
+}
+.logo {
+  color: #3BBA9C;
+  width: 45px;
+  height: 45px;
+}
+
+
+.main-footer {
+  position: fixed;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  z-index: 2;
+  
+  background-color: #3c3f58;
+  border: 2px solid #707793;
+  border-bottom: none;
+  border-top-right-radius: 20px;
+  border-top-left-radius: 20px;
+  
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px;
+  box-sizing: border-box;
+  
+  min-height: 50px;
+  max-height: 50%;
+}
+
+.main-footer textarea {
+  flex-grow: 1;
+  min-height: 50px;
+  max-height: 50vh;
+  resize: vertical;
+  background-color: #43455C;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.chat-window {
+  position: fixed;
+  top: 20px;
+  bottom: 30px;
+  left: 25%;
+  right: 25%;
+  width: 50%;
+  background-color: #43455C;
+  border: 2px solid #707793;
+  border-radius: 16px;
+  overflow-y: auto;
+  padding: 40px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+.message {
+  margin-bottom: 12px;
+  padding: 8px;
+  background-color: #2E3047;
+  border-radius: 12px;
+  color: #eee;
+}
+.message strong {
+  color: #3BBA9C;
+}
