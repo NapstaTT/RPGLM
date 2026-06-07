@@ -1,47 +1,43 @@
-# RPGLM v0.2
+# RPGLM v0.3
 
-**Version 0.2** – Persistent chat with atomic message storage, crash recovery, and versioned timeline.
+**Version 0.3** – "Rich" text formatting, macro substitution, and "character‑aware" chat(at least something).
 
-Built as a student research project (Team No.6).  
-This release adds **durable storage**, **backup rotation**, **version‑aware message history**, and a background flush task – all while keeping the simple web UI.
-
----
-
-## What’s new in v0.2
-
-- **Persistent chat history** – messages survive server restarts and browser refreshes.
-- **Append‑only JSONL storage** + atomic file writes (no corruption on crash).
-- **Automatic crash recovery** – unsaved writes are flushed at next startup.
-- **Version numbering** – each message gets a unique sequential `ver` field.
-- **Background flush** – temporary buffer saved every 3 seconds.
-- **Backup rotation** – up to 10 timestamped backups of the timeline.
-- **No‑cache middleware** – forces browser to always fetch fresh assets (great for development and mobile testing).
-- **Modular storage layer** – `storage.py` manages worlds, backups, and merging.
-- **Run script** – `python run.py` starts the server without messing with PYTHONPATH.
-
-The core chat experience remains the same: type a message → LLM replies.  
-But now the **entire conversation is safely stored on disk** and reloaded when you revisit the page.
+Building on the persistent storage of v0.2, this release adds **inline macros**, **system‑enforced message styling** (character names, actions, dialogue, thoughts, code blocks), and a **lexical parser** that transforms raw LLM output into a beautifully styled chat view.
 
 ---
 
-## What is NOT in v0.2 (yet)
+## What’s new in v0.3
 
-- World state, characters, locations, inventory, mutations (planned for v0.3).
-- Configurable LLM parameters in a UI (still hardcoded in `backend/main.py` except the endpoint).
-- Streaming responses.
-- Multi‑world switching in the frontend.
-- User accounts or authentication.
+- **Macro compilation** – `{{user}}` and `{{char}}` are replaced with actual names (`Artem` / `Mia`) both in user input and in the system prompt.
+- **Structured formatting rules** – The LLM receives a system instruction that forces it to use:
+  - `**Name:**` for character speech headers
+  - `*narrative*` for actions / descriptions
+  - `"dialogue"` for spoken words
+  - `` `thoughts` `` for internal monologue
+  - ` ```code``` ` for stats, technical blocks
+- **Lexical parser (frontend)** – `parseDialogue()` safely converts those patterns into styled HTML without breaking nested structures.
+- **Dedicated CSS styles** – `.char-name`, `.narrative`, `.speech`, `.thoughts`, `.code-block` – all defined in `textstyles.css`.
+- **Sender‑specific left borders** – User messages get a teal border, World messages a grey border.
+- **Optimistic rendering** – Your own message appears immediately with macro substitution applied client‑side.
+- **Backward compatibility** – All v0.2 storage (atomic JSONL, versioning, backups, crash recovery) remains intact.
+
+---
+
+## What is NOT in v0.3 (yet)
+
+- **No editable character names** – `User` and `Assistant` are still hardcoded in `backend/main.py`.
+- **No UI for formatting rules** – The prompt is hardcoded.
+- **No mutations / world state** – The `mutations` field exists but is unused.
+- **No streaming** – Same as before.
+- **No multi‑world UI** – Only one world (`default`) is active.
 
 ---
 
 ## Requirements
 
 - Python 3.10+
-- A local LLM server with an OpenAI‑compatible API, e.g.:
-  - [KoboldCPP](https://github.com/LostRuins/koboldcpp) (start with `--api --openai`)
-  - [oobabooga text‑generation‑webui](https://github.com/oobabooga/text-generation-webui) (OpenAI extension)
-  - [llama.cpp server](https://github.com/ggerganov/llama.cpp) (with `--host 0.0.0.0 --port 5001`)
-- Modern web browser
+- A local LLM server with an OpenAI‑compatible API (KoboldCPP, oobabooga, llama.cpp server)
+- Modern web browser (ES6 support)
 
 ---
 
@@ -53,13 +49,12 @@ But now the **entire conversation is safely stored on disk** and reloaded when y
    cd RPGLM
    ```
 
-2. **Install Python dependencies**
+2. **Install dependencies**
    ```bash
    pip install fastapi uvicorn httpx pydantic
    ```
 
-3. **Start your LLM server**  
-   Example with KoboldCPP (adjust model path):
+3. **Start your LLM server** (example with KoboldCPP)
    ```bash
    ./koboldcpp --api --openai --port 5001 ./models/your-model.gguf
    ```
@@ -68,30 +63,25 @@ But now the **entire conversation is safely stored on disk** and reloaded when y
 
 ## Configuration
 
-All settings are read from environment variables (no config file yet).
+Still via environment variables (no config file yet).
 
 | Variable         | Default                                      | Description                          |
 |------------------|----------------------------------------------|--------------------------------------|
 | `LLM_ENDPOINT`   | `http://localhost:5001/v1/chat/completions` | OpenAI‑compatible chat completion URL |
 | `WORLD_ID`       | `default`                                    | Subdirectory inside `data/worlds/`   |
 
-**Example** (run before starting the server):
-```bash
-export LLM_ENDPOINT="http://127.0.0.1:1234/v1/chat/completions"
-export WORLD_ID="my_campaign"
+LLM parameters (temperature, max_tokens) are still hardcoded in `backend/main.py`.  
+**Character names** are also hardcoded in `send_message()`:
+```python
+USER_NAME = "User"
+CHAR_NAME = "Assistant"
 ```
 
-LLM parameters are still hardcoded in `backend/main.py`:
-- `model`: `"local-model"`
-- `temperature`: `0.7`
-- `max_tokens`: `512`
-- `stream`: `False`
+You can change them directly in the source – a future version will move them to config or UI.
 
 ---
 
 ## Running
-
-Start the FastAPI server from the project root:
 
 ```bash
 python run.py
@@ -99,62 +89,92 @@ python run.py
 
 Then open `http://localhost:8000` in your browser.
 
-- The backend listens on `127.0.0.1:8000` (change in `run.py` if needed).
-- History is stored in `data/worlds/<WORLD_ID>/timeline.jsonl` and `.tmp.jsonl`.
-- Backups go to `data/worlds/<WORLD_ID>/backups/`.
+- All chat history is stored in `data/worlds/<WORLD_ID>/timeline.jsonl` and backed up automatically.
+- Formatting instructions are sent with every request – the LLM “learns” the style.
 
 ---
 
-## Project structure (v0.2)
+## How the formatting works
+
+1. **User types** `"Hello, {{char}}!"` → macro compiles to `"Hello, Assistant!"` (client‑side and server‑side).
+2. **System prompt** (hardcoded) tells the LLM to output:
+   ```
+   **Mia:** *She looks up from her book* "Oh, hello Artem!" `Why is he here so late?`
+   ```
+3. **Frontend parser** (`parseDialogue`) converts that into:
+   - `<span class="char-name">Assistant:</span>`
+   - `<span class="narrative">*She looks up from her book*</span>`
+   - `<span class="speech">"Oh, hello User!"</span>`
+   - `<span class="thoughts">`Why is he here so late?`</span>`
+
+No HTML injection – all user/LLM text is escaped before parsing.
+
+---
+
+## Project structure (v0.3)
 
 ```
 RPGLM/
 ├── backend/
-│   ├── main.py           # FastAPI app, LLM proxy, versioning, background flush
-│   ├── storage.py        # WorldStorage, atomic JSONL operations, backup rotation
-│   └── middleware.py     # NoCacheMiddleware for development
+│   ├── main.py           # FastAPI app, macro compilation, system prompt, LLM proxy
+│   ├── storage.py        # Atomic JSONL, versioning, backups, crash recovery
+│   └── middleware.py     # NoCacheMiddleware
 ├── frontend/
 │   ├── index.html
-│   ├── css/styles.css
-│   ├── js/chat.js        # Loads /api/history and sends messages
-│   └── assets/icons/     # SVG sprite (not shown in your snippet)
+│   ├── css/
+│   │   ├── styles.css    # Layout (header, footer, chat window, buttons)
+│   │   └── textstyles.css# Lexical highlighting (names, narrative, speech, etc.)
+│   ├── js/
+│   │   └── chat.js       # loadHistory, sendMessage, parseDialogue, optimistic render
+│   └── assets/icons/     # SVG sprite (expected, not shown in your snippet)
 ├── tests/
-│   └── test_storage.py   # Basic storage sanity check
-├── run.py                # Entry point (sets PYTHONPATH, runs uvicorn)
+│   └── test_storage.py
+├── run.py                # Entry point
 └── README.md
 ```
 
 ---
 
-## API endpoints
+## API endpoints (unchanged from v0.2)
 
 | Method | Path           | Description                                 |
 |--------|----------------|---------------------------------------------|
-| GET    | `/api/history` | Returns `{"messages": [...], "latest_version": N}` |
-| POST   | `/api/send`    | Accepts `{"text": "..."}` → replies with `{"reply": "..."}` |
+| GET    | `/api/history` | Returns sorted messages with version numbers |
+| POST   | `/api/send`    | Accepts `{"text": "..."}`, compiles macros, calls LLM, stores both messages |
 | GET    | `/`            | Serves the chat UI (`index.html`)          |
 
-All other paths serve static files from `frontend/`.
+---
+
+## Limitations in v0.3 (honest)
+
+- **Hardcoded character names** – change `USER_NAME` / `CHAR_NAME` in `backend/main.py` to customize.
+- **System prompt is fixed** – you cannot edit formatting rules via UI.
+- **No “regenerate” or “edit”** – you cannot delete or correct a message.
+- **No streaming** – still waits for full LLM response.
+- **No support for multiple worlds in frontend** – only the `default` world is used.
+- **The `mutations` field** is a placeholder for future world‑state changes.
 
 ---
 
-## Limitations in v0.2
+## Development & contribution
 
-- **No mutations** – the `mutations` field exists in the message schema but is never used.
-- **No character/world UI** – just a plain chat window.
-- **LLM parameters are hardcoded** – change `temperature` etc. requires editing `main.py`.
-- **No streaming** – the entire reply is fetched before display.
-- **Single world at a time** – changing `WORLD_ID` requires restarting the server.
+Team No.6 student project. Code style remains:
+
+- **Python**: PEP 8, Google docstrings, type hints.
+- **JavaScript**: ES6, `const`/`let`, semicolons, JSDoc comments.
+- **CSS**: 2‑space indentation, BEM‑ish class naming.
+
+To test storage manually:
+```bash
+python tests/test_storage.py
+```
 
 ---
 
-## Next steps
+## Next steps (v0.4)
 
-- Editable LLM parameters (temperature, top‑p, etc.) from the frontend.
-- Character&world definitions and world state.
-- Basic mutation system (append‑only changes).
-- Multi‑world selection UI.
-## v0.3. What's NEXT?
-- Streaming
-- Clearly devide by code where's character speech, where's narrative, where is user's speech
-- Create Tags: locations, characters, ect. Make up the system, that will be transformed into search by key-words in future update
+- Move character names and system prompt to a configuration file or UI.
+- Add **world state** (characters, locations, inventory) with mutation tracking.
+- **Streaming responses**.
+- **Message editing / deletion**.
+- **Multi‑world selection** in the frontend.
