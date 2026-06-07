@@ -7,21 +7,25 @@ backups/
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .venv/
 venv/
 env/
-
-# IDE
-.vscode/
-.idea/
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Logs
 logs/
 *.log
 
-# OS metadata
+# IDE and OS
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 
-# Environment variables (если хранишь ключи)
+# Environment variables
 .env
