@@ -1,0 +1,58 @@
+/* ==========================================================================
+   RPGLM Lexical Highlighting Styles (v0.3.0)
+   Designed in separation of core layouts according to SOLID specifications.
+   ========================================================================== */
+
+/* Character speech titles inside chat panels (**Mia:**) */
+.char-name {
+  color: #3BBA9C; /* Corporate emerald signature tone */
+  font-weight: bold;
+  font-size: 1.05em;
+  margin-right: 5px;
+}
+
+/* Background narrative, actions, and scenes descriptions (*Italic narrative*) */
+.narrative {
+  color: #707793; /* Flat, non-distracting slate grey color */
+  font-style: italic;
+}
+
+/* Spoken sentences wrapped in quotes ("Dialogue lines") */
+.speech {
+  color: #3BBA9C; /* Kept aligned with standard terminal configurations */
+  font-weight: normal;
+}
+
+/* Internal monologue expressions (Single backticks `Thought`) */
+.thoughts {
+  color: #8fa1e0; /* Light lavender-indigo coloring */
+  font-style: italic;
+}
+
+/* Technical parameters, system outputs, stats panels (Triple backticks) */
+.code-block {
+  background-color: #242638; /* Contrasted background frame */
+  border: 1px solid #43455C;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'Courier New', Courier, monospace;
+  color: #3BBA9C;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-size: 0.9em;
+  display: block;
+}
+
+/* Structural message viewport containers layout */
+div[data-sender="You"] {
+  border-left: 3px solid #3BBA9C;
+  padding-left: 10px;
+  margin-bottom: 15px;
+}
+
+div[data-sender="World"] {
+  border-left: 3px solid #43455C;
+  padding-left: 10px;
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
