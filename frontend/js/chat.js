@@ -1,32 +1,9 @@
-/**
- * Main chat interaction module.
- * Handles sending messages to the backend and displaying LLM replies.
- */
+console.log("chat.js loaded");
 
-// DOM elements
 const chatContainer = document.querySelector('.chat-window');
 const textarea = document.querySelector('.message-input');
 const sendButton = document.querySelector('.main-footer .menu-button:last-child');
-const menuButtons = document.querySelectorAll('.main-header .menu-button');
 
-/**
- * Appends a message to the chat window.
- * @param {string} text - Message content.
- * @param {string} sender - Name of the sender (e.g., 'You', 'World').
- */
-function addMessage(text, sender) {
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message');
-    messageDiv.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(text)}`;
-    chatContainer.appendChild(messageDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-/**
- * Simple HTML escape to prevent XSS.
- * @param {string} str - Raw string.
- * @returns {string} Escaped string.
- */
 function escapeHtml(str) {
     return str.replace(/[&<>]/g, function(m) {
         if (m === '&') return '&amp;';
@@ -36,13 +13,35 @@ function escapeHtml(str) {
     });
 }
 
-/**
- * Sends user message to backend and displays the reply.
- */
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message');
+    messageDiv.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(text)}`;
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+async function loadHistory() {
+    try {
+        const response = await fetch('/api/history');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        chatContainer.innerHTML = '';
+        for (const msg of data.messages) {
+            let sender = msg.role;
+            if (sender === 'user') sender = 'You';
+            else if (sender === 'assistant') sender = 'World';
+            addMessage(msg.content, sender);
+        }
+    } catch (err) {
+        console.error("loadHistory error:", err);
+        addMessage("Не удалось загрузить историю", "System");
+    }
+}
+
 async function sendMessage() {
     const text = textarea.value.trim();
-    if (text === '') return;
-
+    if (!text) return;
     addMessage(text, 'You');
     textarea.value = '';
 
@@ -52,18 +51,15 @@ async function sendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
         });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        addMessage(data.reply, 'World');
-    } catch (error) {
-        console.error('Send error:', error);
-        addMessage('Failed to reach the server. Is it running?', 'System');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await response.json();
+        await loadHistory();
+    } catch (err) {
+        console.error("sendMessage error:", err);
+        addMessage("Ошибка при отправке", "System");
     }
 }
 
-// Event listeners
 sendButton.addEventListener('click', sendMessage);
 textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -72,6 +68,4 @@ textarea.addEventListener('keydown', (e) => {
     }
 });
 
-menuButtons.forEach((btn, idx) => {
-    btn.addEventListener('click', () => console.log(`Menu button ${idx} clicked`));
-});
+loadHistory();
