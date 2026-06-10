@@ -1,160 +1,126 @@
-# RPGLM v0.2
+# RPGLM v0.3
 
-**Version 0.2** – Persistent chat with atomic message storage, crash recovery, and versioned timeline.
+**Version 0.3** – Streaming, stop generation, tag-based message splitting, and contextual interrupts.
 
 Built as a student research project (Team No.6).  
-This release adds **durable storage**, **backup rotation**, **version‑aware message history**, and a background flush task – all while keeping the simple web UI.
+This release adds **streaming LLM responses**, **stop button with partial reply saving**, **automatic splitting of assistant replies into separate messages by `**Name:**` tags**, and **hardcoded macro replacement (`{{user}}` → `User`, `{{char}}` → `Assistant`)** – all while keeping the atomic JSONL storage and crash recovery from v0.2.
 
 ---
 
-## What’s new in v0.2
+## What’s new in v0.3
 
-- **Persistent chat history** – messages survive server restarts and browser refreshes.
-- **Append‑only JSONL storage** + atomic file writes (no corruption on crash).
-- **Automatic crash recovery** – unsaved writes are flushed at next startup.
-- **Version numbering** – each message gets a unique sequential `ver` field.
-- **Background flush** – temporary buffer saved every 3 seconds.
-- **Backup rotation** – up to 10 timestamped backups of the timeline.
-- **No‑cache middleware** – forces browser to always fetch fresh assets (great for development and mobile testing).
-- **Modular storage layer** – `storage.py` manages worlds, backups, and merging.
-- **Run script** – `python run.py` starts the server without messing with PYTHONPATH.
-
-The core chat experience remains the same: type a message → LLM replies.  
-But now the **entire conversation is safely stored on disk** and reloaded when you revisit the page.
-
----
-
-## What is NOT in v0.2 (yet)
-
-- World state, characters, locations, inventory, mutations (planned for v0.3).
-- Configurable LLM parameters in a UI (still hardcoded in `backend/main.py` except the endpoint).
-- Streaming responses.
-- Multi‑world switching in the frontend.
-- User accounts or authentication.
+- **Streaming (with fallback)** – LLM replies are generated token by token, displayed only when complete (or interrupted).  
+  If streaming is not supported by the LLM server, the system falls back to non‑streaming mode.
+- **Stop generation** – User can interrupt the reply mid‑generation. The partial text is saved to storage and displayed in chat.
+- **Tag‑based message splitting** – Assistant responses containing `**Name:**` blocks are split into separate chat messages, each with its own `role = Name` (e.g., `**Alice:**` becomes a message from Alice).  
+  This allows multiple characters to speak in one LLM turn.
+- **Stop word trimming** – If the LLM outputs `**User:**`, everything after that is discarded (prevents the model from impersonating the user).
+- **Macro placeholders** – In context, `{{user}}` is replaced with `User`, `{{char}}` with `Assistant` (hardcoded for now – will be configurable in v0.4).
+- **New endpoints:**
+  - `POST /api/send/stream` – streaming version with tag splitting.
+  - `POST /api/abort` – tells KoboldCPP to stop current generation.
+- **UI improvements:**
+  - Send button turns into a white square (stop) during generation.
+  - Text input remains editable; only sending is blocked.
+  - Partial replies appear after stopping, then full history reloads.
 
 ---
 
-## Requirements
+## What is NOT in v0.3 (yet)
+
+- Editable character/location/world definitions (v0.4).
+- Mutations (v0.6).
+- Configurable LLM parameters in UI.
+- Persistent character names – `User` and `Assistant` are still hardcoded.
+- Multi‑world switching.
+- Proper error recovery for all LLM backends (only KoboldCPP is well tested).
+
+---
+
+## Requirements (unchanged)
 
 - Python 3.10+
-- A local LLM server with an OpenAI‑compatible API, e.g.:
-  - [KoboldCPP](https://github.com/LostRuins/koboldcpp) (start with `--api --openai`)
-  - [oobabooga text‑generation‑webui](https://github.com/oobabooga/text-generation-webui) (OpenAI extension)
-  - [llama.cpp server](https://github.com/ggerganov/llama.cpp) (with `--host 0.0.0.0 --port 5001`)
-- Modern web browser
+- A local LLM server with **OpenAI‑compatible streaming API** (KoboldCPP recommended).  
+  For KoboldCPP, start with `--api --openai`.
 
 ---
 
-## Installation
+## Installation & Configuration
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/RPGLM.git
-   cd RPGLM
-   ```
+Same as v0.2, but note the new environment variable:
 
-2. **Install Python dependencies**
-   ```bash
-   pip install fastapi uvicorn httpx pydantic
-   ```
+| Variable         | Default                          | Description                          |
+|------------------|----------------------------------|--------------------------------------|
+| `LLM_BASE_URL`   | `http://localhost:5001`          | Base URL of your LLM server (without `/v1`) |
+| `WORLD_ID`       | `default`                        | Subdirectory inside `data/worlds/`   |
 
-3. **Start your LLM server**  
-   Example with KoboldCPP (adjust model path):
-   ```bash
-   ./koboldcpp --api --openai --port 5001 ./models/your-model.gguf
-   ```
-
----
-
-## Configuration
-
-All settings are read from environment variables (no config file yet).
-
-| Variable         | Default                                      | Description                          |
-|------------------|----------------------------------------------|--------------------------------------|
-| `LLM_ENDPOINT`   | `http://localhost:5001/v1/chat/completions` | OpenAI‑compatible chat completion URL |
-| `WORLD_ID`       | `default`                                    | Subdirectory inside `data/worlds/`   |
-
-**Example** (run before starting the server):
+Example:
 ```bash
-export LLM_ENDPOINT="http://127.0.0.1:1234/v1/chat/completions"
+export LLM_BASE_URL="http://127.0.0.1:5001"
 export WORLD_ID="my_campaign"
 ```
 
-LLM parameters are still hardcoded in `backend/main.py`:
-- `model`: `"local-model"`
-- `temperature`: `0.7`
-- `max_tokens`: `512`
-- `stream`: `False`
+If you were using `LLM_ENDPOINT` before, replace it with `LLM_BASE_URL`.
 
 ---
 
 ## Running
 
-Start the FastAPI server from the project root:
-
 ```bash
 python run.py
 ```
 
-Then open `http://localhost:8000` in your browser.
-
-- The backend listens on `127.0.0.1:8000` (change in `run.py` if needed).
-- History is stored in `data/worlds/<WORLD_ID>/timeline.jsonl` and `.tmp.jsonl`.
-- Backups go to `data/worlds/<WORLD_ID>/backups/`.
+Open `http://localhost:8000`.
 
 ---
 
-## Project structure (v0.2)
+## Project structure (v0.3)
 
 ```
 RPGLM/
 ├── backend/
-│   ├── main.py           # FastAPI app, LLM proxy, versioning, background flush
-│   ├── storage.py        # WorldStorage, atomic JSONL operations, backup rotation
-│   └── middleware.py     # NoCacheMiddleware for development
+│   ├── main.py           # Two endpoints: /api/send (legacy) and /api/send/stream (new)
+│   ├── llm_client.py     # KoboldCppClient with streaming, abort, and message splitting
+│   ├── storage.py        # Unchanged from v0.2
+│   └── middleware.py
 ├── frontend/
 │   ├── index.html
 │   ├── css/styles.css
-│   ├── js/chat.js        # Loads /api/history and sends messages
-│   └── assets/icons/     # SVG sprite (not shown in your snippet)
-├── tests/
-│   └── test_storage.py   # Basic storage sanity check
-├── run.py                # Entry point (sets PYTHONPATH, runs uvicorn)
+│   ├── js/chat.js        # Handles streaming, stop button, history reload
+│   └── assets/icons/     # Added icon-stop symbol
+├── run.py
 └── README.md
 ```
 
 ---
 
-## API endpoints
+## API endpoints (v0.3)
 
-| Method | Path           | Description                                 |
-|--------|----------------|---------------------------------------------|
-| GET    | `/api/history` | Returns `{"messages": [...], "latest_version": N}` |
-| POST   | `/api/send`    | Accepts `{"text": "..."}` → replies with `{"reply": "..."}` |
-| GET    | `/`            | Serves the chat UI (`index.html`)          |
-
-All other paths serve static files from `frontend/`.
-
----
-
-## Limitations in v0.2
-
-- **No mutations** – the `mutations` field exists in the message schema but is never used.
-- **No character/world UI** – just a plain chat window.
-- **LLM parameters are hardcoded** – change `temperature` etc. requires editing `main.py`.
-- **No streaming** – the entire reply is fetched before display.
-- **Single world at a time** – changing `WORLD_ID` requires restarting the server.
+| Method | Path               | Description                                                          |
+|--------|--------------------|----------------------------------------------------------------------|
+| GET    | `/api/history`     | Returns all messages (with `role` as name for assistant messages).   |
+| POST   | `/api/send`        | Legacy non‑streaming endpoint (returns full reply in one chunk).     |
+| POST   | `/api/send/stream` | Streaming endpoint. Response is SSE. Splits `**Name:**` blocks.      |
+| POST   | `/api/abort`       | Tells KoboldCPP to abort current generation.                         |
+| GET    | `/`                | Serves the chat UI.                                                  |
 
 ---
 
-## Next steps
+## Known limitations & quirks (v0.3)
 
-- Editable LLM parameters (temperature, top‑p, etc.) from the frontend.
-- Character&world definitions and world state.
-- Basic mutation system (append‑only changes).
-- Multi‑world selection UI.
-## v0.3. What's NEXT?
-- Streaming
-- Clearly devide by code where's character speech, where's narrative, where is user's speech
-- Create Tags: locations, characters, ect. Make up the system, that will be transformed into search by key-words in future update
+- **Macros are hardcoded** – `{{user}}` → `User`, `{{char}}` → `Assistant`. No UI to change them yet. Somewhere is broken.
+- **Stop word trimming** – The stop word is `**User:**` (exactly). If the LLM writes `**User:**`, everything after is cut off. This may cut legitimate text if the model talks about the user.
+- **Partial replies on stop** – When stopping, the server saves whatever text has been generated, even if it doesn't contain a full `**Name:**` tag. That message gets `role = "assistant"` and appears without a character name.
+- **Only KoboldCPP tested** – Abort uses `/api/extra/abort`. Other backends (Oobabooga, llama.cpp) may not support graceful stop.
+- **Streaming detection** – The system does not auto‑detect streaming support; it always tries `stream=True`. If your LLM server returns an error, you'll need to use the legacy `/api/send`.
+- **UI state** – The stop button is white, field is not blocked; but if you send a new message while generation is still ongoing, the old generation is aborted (expected).
+
+---
+
+## Next steps (v0.4+)
+
+- **Configurable character names** – Replace hardcoded `User`/`Assistant` with actual names from character definitions.
+- **Character/location/world JSON storage** – CRUD for entities, attach state and avatar.
+- **Macro system** – Expand `{{user}}`, `{{char}}`, `{{location}}`, `{{var:...}}` from world state.
+- **Context injection** – Insert active characters, location description, and triggered notes into the LLM prompt.
+- **Mutation planning** – Second low‑temperature call to modify world state.
