@@ -3,17 +3,35 @@ import re
 import httpx
 from typing import List, Dict, Any, Callable, Optional
 
+
 class KoboldCppClient:
-    """Клиент для KoboldCPP с поддержкой стриминга и остановки генерации."""
+    """Client for KoboldCPP with streaming and abort support."""
 
     def __init__(self, base_url: str, model: str = "local-model", timeout: float = 120.0):
+        """Initialize the client.
+
+        Args:
+            base_url: Base URL of KoboldCPP server (e.g., 'http://localhost:5001').
+            model: Model name to use (default 'local-model').
+            timeout: Request timeout in seconds.
+        """
         self.base_url = base_url.rstrip('/')
         self.model = model
         self.timeout = timeout
         self._abort_requested = False
 
     async def generate_full(self, messages: List[Dict[str, str]]) -> str:
-        """Получение ответа без стриминга (резервный режим)."""
+        """Generate a complete response without streaming (fallback mode).
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'.
+
+        Returns:
+            The generated text content.
+
+        Raises:
+            httpx.HTTPStatusError: If the request fails.
+        """
         payload = {
             "model": self.model,
             "messages": messages,
@@ -27,10 +45,16 @@ class KoboldCppClient:
             data = resp.json()
             return data["choices"][0]["message"]["content"]
 
-    async def generate_stream(self, messages: List[Dict[str, str]], on_chunk: Callable[[str], None]) -> str:
-        """
-        Генерация с стримингом. on_chunk вызывается для каждого фрагмента текста.
-        Возвращает полный собранный ответ.
+    async def generate_stream(self, messages: List[Dict[str, str]],
+                              on_chunk: Callable[[str], None]) -> str:
+        """Generate a response with streaming.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'.
+            on_chunk: Callback that receives each text fragment.
+
+        Returns:
+            The full accumulated response string.
         """
         self._abort_requested = False
         payload = {
@@ -42,7 +66,8 @@ class KoboldCppClient:
         }
         full_text = ""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            async with client.stream("POST", f"{self.base_url}/v1/chat/completions", json=payload) as response:
+            async with client.stream("POST", f"{self.base_url}/v1/chat/completions",
+                                     json=payload) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if self._abort_requested:
@@ -57,7 +82,6 @@ class KoboldCppClient:
                         delta = chunk["choices"][0]["delta"]
                         if "content" in delta:
                             content = delta["content"]
-                            print(f"[DEBUG] Chunk: {content[:50]}")  # временно
                             full_text += content
                             on_chunk(content)
                     except json.JSONDecodeError:
@@ -65,7 +89,11 @@ class KoboldCppClient:
         return full_text
 
     async def abort(self) -> bool:
-        """Отправить команду остановки генерации в KoboldCPP."""
+        """Send an abort command to stop generation.
+
+        Returns:
+            True if the abort request succeeded, False otherwise.
+        """
         self._abort_requested = True
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
@@ -76,9 +104,13 @@ class KoboldCppClient:
 
 
 def split_into_messages(full_response: str) -> List[Dict[str, str]]:
-    """
-    Разбивает ответ LLM на отдельные сообщения по тегу **Имя:**
-    Возвращает список [{"role": "Имя", "content": "текст"}, ...]
+    """Split LLM response into individual messages using **Name:** tags.
+
+    Args:
+        full_response: The raw response from the LLM.
+
+    Returns:
+        A list of dicts with 'role' (the name) and 'content' (the text).
     """
     pattern = r'\*\*([^:]+):\*\*\s*'
     parts = re.split(pattern, full_response)

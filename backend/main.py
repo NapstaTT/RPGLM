@@ -14,8 +14,14 @@ from .middleware import NoCacheMiddleware
 from .storage import StorageConfig, WorldStorage
 from .llm_client import KoboldCppClient, split_into_messages
 
+from .lorebook import LorebookConfig, LorebookStorage
+from .lorebook.location import LocationManager
+from .lorebook.character import CharacterManager
+from .lorebook.entry import EntryManager
+from .lorebook.router import router as lorebook_router
+
 # Environment Configuration
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:5001")   # без /v1
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:5001")   # without /v1
 WORLD_ID = "default"
 SAVE_INTERVAL_SECONDS = 3
 
@@ -33,6 +39,7 @@ _next_version = 1
 
 
 async def init_version_counter() -> None:
+    """Initialize the message version counter from existing history."""
     global _next_version
     async with _storage_lock:
         all_msgs = world_storage.get_sorted_history()
@@ -45,6 +52,7 @@ async def init_version_counter() -> None:
 
 
 async def get_next_version() -> int:
+    """Return the next sequential version number."""
     global _next_version
     async with _version_lock:
         ver = _next_version
@@ -53,6 +61,7 @@ async def get_next_version() -> int:
 
 
 async def periodic_save_task() -> None:
+    """Background task that periodically flushes the temporary buffer to main storage."""
     while True:
         await asyncio.sleep(SAVE_INTERVAL_SECONDS)
         try:
@@ -64,13 +73,27 @@ async def periodic_save_task() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
     async with _storage_lock:
         world_storage.recover_if_needed()
     await init_version_counter()
     bg_task = asyncio.create_task(periodic_save_task())
+
+    # --- Lorebook initialization ---
+    lorebook_config = LorebookConfig()
+    lorebook_storage = LorebookStorage(world_id=WORLD_ID, config=lorebook_config)
+    app.state.lorebook_storage = lorebook_storage
+    app.state.lorebook_managers = {
+        "locations": LocationManager(lorebook_storage),
+        "characters": CharacterManager(lorebook_storage),
+        "entries": EntryManager(lorebook_storage),
+    }
+
     print(f"[Server] RGPLM Backend v0.3 active. LLM: {LLM_BASE_URL}")
     yield
+
     bg_task.cancel()
+    await lorebook_storage.shutdown()
     print("[Server] RGPLM Backend shutting down.")
 
 
@@ -89,15 +112,17 @@ class HistoryResponse(BaseModel):
 
 @app.get("/api/history", response_model=HistoryResponse)
 async def get_history():
+    """Return the full message history."""
     async with _storage_lock:
         sorted_msgs = world_storage.get_sorted_history()
     latest_version = sorted_msgs[-1]["ver"] if sorted_msgs else 0
     return HistoryResponse(messages=sorted_msgs, latest_version=latest_version)
 
 
-# ---- старый эндпоинт (без стриминга, для совместимости) ----
+# ---- Legacy non-streaming endpoint ----
 @app.post("/api/send")
 async def send_message(request: MessageRequest) -> Dict[str, str]:
+    """Send a message and receive a full (non-streaming) response."""
     user_text = request.text.strip()
     if not user_text:
         raise HTTPException(status_code=400, detail="Message content cannot be empty")
@@ -140,14 +165,15 @@ async def send_message(request: MessageRequest) -> Dict[str, str]:
     return {"reply": llm_reply}
 
 
-# ---- новый стриминговый эндпоинт с разбиением по тегам ----
+# ---- Streaming endpoint with message splitting ----
 @app.post("/api/send/stream")
 async def send_message_stream(request: MessageRequest, raw_request: Request):
+    """Stream the LLM response and split it into separate messages by **Name:** tags."""
     user_text = request.text.strip()
     if not user_text:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    # Сохраняем сообщение пользователя
+    # Save user message
     user_ver = await get_next_version()
     user_msg = {
         "ver": user_ver,
@@ -159,12 +185,12 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
     async with _storage_lock:
         world_storage.append_to_tmp(user_msg)
 
-    # Получаем историю для контекста
+    # Get conversation history for context
     async with _storage_lock:
         sorted_all = world_storage.get_sorted_history()
     context_msgs = sorted_all[-20:] if len(sorted_all) > 20 else sorted_all
 
-    # Преобразуем историю для LLM
+    # Convert history for LLM
     messages_for_llm = []
     for m in context_msgs:
         role = "user" if m["role"] == "user" else "assistant"
@@ -172,14 +198,14 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
         content = content.replace("{{user}}", "User").replace("{{char}}", "Assistant")
         messages_for_llm.append({"role": role, "content": content})
 
-    # Системный промпт
+    # System prompt in English
     system_prompt = {
         "role": "system",
         "content": (
-            "Ты — мастер игры и все персонажи мира. Отвечай, используя формат:\n"
-            "**Имя персонажа:** его реплика или действие.\n"
-            "Ты можешь давать несколько таких блоков подряд. "
-            "Заканчивай ответ, когда встречаешь слово **User:** (это сигнал остановки, его не включай в ответ)."
+            "You are the game master and all characters in the world. Respond using the format:\n"
+            "**Character name:** their line or action.\n"
+            "You may give multiple such blocks in a row. Stop when you encounter the word **User:** "
+            "(this is a stop signal, do not include it in the response)."
         )
     }
     messages_for_llm.insert(0, system_prompt)
@@ -187,6 +213,7 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
     async def event_generator():
         full_reply = ""
         queue = asyncio.Queue()
+
         def on_chunk(chunk: str):
             asyncio.create_task(queue.put(chunk))
 
@@ -203,7 +230,7 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
                 except asyncio.TimeoutError:
                     if gen_task.done():
                         break
-                    # Проверяем, не отключился ли клиент
+                    # Check if client disconnected
                     if await raw_request.is_disconnected():
                         print("[Stream] Client disconnected, aborting LLM...")
                         await llm_client.abort()
@@ -214,14 +241,14 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
         except Exception as e:
             print(f"[Stream] Error: {e}")
         finally:
-            # ВСЕГДА сохраняем то, что накопили (даже пустую строку не сохраняем)
+            # Always save accumulated reply (unless empty)
             if full_reply:
                 print(f"[Stream] Saving partial/full reply ({len(full_reply)} chars)")
-                # Обрезаем по стоп-слову
+                # Trim stop word
                 stop_word = "**User:**"
                 if stop_word in full_reply:
                     full_reply = full_reply.split(stop_word)[0].rstrip()
-                # Разбиваем на сообщения
+                # Split into messages
                 parsed_msgs = split_into_messages(full_reply)
                 if parsed_msgs:
                     async with _storage_lock:
@@ -237,7 +264,7 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
                             world_storage.append_to_tmp(assistant_msg)
                     print(f"[Stream] Saved {len(parsed_msgs)} messages")
                 else:
-                    # Если не удалось разбить по тегам, сохраняем как есть с role="assistant"
+                    # Fallback: save as a single assistant message
                     assistant_ver = await get_next_version()
                     assistant_msg = {
                         "ver": assistant_ver,
@@ -249,18 +276,21 @@ async def send_message_stream(request: MessageRequest, raw_request: Request):
                     async with _storage_lock:
                         world_storage.append_to_tmp(assistant_msg)
                     print("[Stream] Saved as single assistant message")
-            # Отправляем сигнал завершения клиенту
+            # Send completion signal to client
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-# ---- остановка генерации ----
+# ---- Abort generation endpoint ----
 @app.post("/api/abort")
 async def abort_generation():
+    """Stop the ongoing LLM generation."""
     success = await llm_client.abort()
     return {"aborted": success}
 
+
+app.include_router(lorebook_router)
 
 # --- Static Files and Frontend Routing ---
 PROJECT_ROOT = Path(__file__).parent.parent

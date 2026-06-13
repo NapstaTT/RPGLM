@@ -1,0 +1,257 @@
+/* ===== LOREBOOK MODAL ===== */
+.lorebook-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+}
+.lorebook-modal.hidden {
+  display: none;
+}
+.lorebook-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+	height: 100%;
+  background: rgba(0,0,0,0.85);
+}
+.lorebook-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #2E3047;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10001;
+}
+.lorebook-header {
+  display: flex;
+  background: #3c3f58;
+  padding: 10px;
+  border-bottom: 2px solid #707793;
+  align-items: center;
+}
+.lorebook-tab {
+  background: none;
+  border: none;
+  color: #ccc;
+  padding: 8px 16px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.lorebook-tab.active {
+  color: #3BBA9C;
+  border-bottom: 3px solid #3BBA9C;
+}
+.lorebook-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+}
+.lorebook-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.lorebook-toolbar {
+  margin-bottom: 20px;
+}
+.lorebook-add-btn {
+  background: #3BBA9C;
+  border: none;
+  color: #2E3047;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.lorebook-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.lorebook-card {
+  background: #43455C;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid #707793;
+}
+.lorebook-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.lorebook-card-title {
+  font-weight: bold;
+  color: #3BBA9C;
+}
+.lorebook-card-preview {
+  font-size: 0.9em;
+  color: #ddd;
+  margin-bottom: 12px;
+}
+.lorebook-card-actions button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+.lorebook-empty {
+  text-align: center;
+  color: #aaa;
+  padding: 40px;
+}
+.lorebook-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.9);
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lorebook-form-container {
+  background: #43455C;
+  border-radius: 20px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid #707793;
+}
+.lorebook-form-container h3 {
+  color: #3BBA9C;
+  margin-top: 0;
+}
+.form-group {
+  margin-bottom: 15px;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 6px;
+  background: #2E3047;
+  border: 1px solid #707793;
+  color: white;
+  border-radius: 8px;
+}
+.form-group small {
+  color: #aaa;
+  font-size: 0.8em;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.form-actions button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.form-actions button[type="submit"] {
+  background: #3BBA9C;
+  color: #2E3047;
+}
+.form-actions button[type="button"] {
+  background: #707793;
+  color: white;
+}
+/* Checkbox group for character selection */
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 5px;
+}
+.checkbox-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #3c3f58;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: normal;
+}
+.checkbox-group input {
+    margin: 0;
+    width: auto;
+}
+
+/* Ensure selects have proper styling */
+select {
+    background-color: #2E3047;
+    color: white;
+    border: 1px solid #707793;
+    border-radius: 8px;
+    padding: 6px;
+}
+/* Custom Confirm Dialog */
+.custom-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 30000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.custom-confirm-dialog {
+    background: #43455C;
+    border: 1px solid #707793;
+    border-radius: 16px;
+    padding: 20px;
+    min-width: 300px;
+    text-align: center;
+    color: white;
+}
+.custom-confirm-dialog p {
+    margin: 0 0 20px 0;
+    font-size: 16px;
+}
+.custom-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+.custom-confirm-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+}
+.confirm-yes {
+    background: #3BBA9C;
+    color: #2E3047;
+}
+.confirm-no {
+    background: #707793;
+    color: white;
+}

@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 
-<!-- #3BBA9C - текст в кавычках, иконки -->
-<!-- #2E3047 - фон -->
-<!-- #43455C - Подменю -->
-<!-- #3c3f58 - основное меню -->
-<!-- #707793 - темный текст, обводка тд -->
+<!-- #3BBA9C - quoted text, icons -->
+<!-- #2E3047 - background -->
+<!-- #43455C - submenu -->
+<!-- #3c3f58 - main menu -->
+<!-- #707793 - dark text, borders etc -->
 <html>
   <head>
     <meta charset="UTF-8">
     <title>RPGLM</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/lorebook.css">
   </head>
   <body class="main-body">
     <header class="main-header">
@@ -19,7 +20,7 @@
           <use href="/assets/icons/icons.svg#icon-bars"></use>
         </svg>
       </button>
-      <button class="menu-button">
+      <button class="menu-button" id="lorebook-open-btn">
         <svg class="icon" width="45" height="45">
           <use href="/assets/icons/icons.svg#icon-book"></use>
         </svg>
@@ -45,7 +46,7 @@
           <use href="/assets/icons/icons.svg#icon-bars"></use>
         </svg>
       </button>
-      <textarea class="message-input" style="resize: vertical;" placeholder="Введите сообщение"></textarea>
+      <textarea class="message-input" style="resize: vertical;" placeholder="Enter message"></textarea>
       <button class="menu-button">
         <svg class="icon" width="45" height="45">
           <use href="/assets/icons/icons.svg#icon-arrow-right"></use>
@@ -58,5 +59,11 @@
       </button>
     </footer>
     <script src="/js/chat.js"></script>
+    <script src="/js/lorebook.js"></script>
+    <script>
+      document.getElementById('lorebook-open-btn').addEventListener('click', () => {
+        if (window.lorebookUI) window.lorebookUI.open();
+      });
+    </script>
   </body>
 </html>
