@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "templates": {
+        "narrator": "{{#if system_prompt}}{{system_prompt}}\n{{/if}}{{#if user_persona}}User persona: {{user_persona}}\n{{/if}}{{#if character_description}}Active character: {{character_description}}\n{{/if}}{{#if location_description}}Location: {{location_description}}\n{{/if}}{{#if world_map}}Known locations: {{world_map}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}Conversation history:\n{{history}}{{/if}}",
+        "character": "{{#if character_description}}{{character_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}",
+        "permutation": "{{#if instruction}}{{instruction}}\n{{/if}}{{#if text}}{{text}}{{/if}}"
+    },
+    "prompts": {
+        "narrator": "You are the game master. Describe the world, NPCs, and events vividly. Do not speak for the user. Stay in character.",
+        "character": "Stay in character. Respond as the character. Do not narrate for the user. Be creative.",
+        "permutation": "Rewrite the following text in a different style while preserving its meaning."
+    }
+}

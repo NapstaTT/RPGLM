@@ -1,4 +1,5 @@
-console.log("chat.js v0.3 loaded");
+// chat.js v0.5 with Persona support
+console.log("chat.js v0.5 with Persona support");
 
 const chatContainer = document.querySelector('.chat-window');
 const textarea = document.querySelector('.message-input');
@@ -6,6 +7,14 @@ const sendButton = document.querySelector('.main-footer .menu-button:last-child'
 let currentController = null;
 let isGenerating = false;
 
+// Global user name (loaded from Persona)
+let currentUserName = 'User';
+
+/**
+ * Escape HTML special characters.
+ * @param {string} str - Input string.
+ * @returns {string} Escaped string.
+ */
 function escapeHtml(str) {
     return str.replace(/[&<>]/g, function(m) {
         if (m === '&') return '&amp;';
@@ -15,18 +24,31 @@ function escapeHtml(str) {
     });
 }
 
-function addMessage(text, sender) {
+/**
+ * Add a message to the chat window.
+ * @param {string} text - Message content.
+ * @param {string} role - Role (user, assistant, system).
+ * @param {boolean} isUser - Whether this message is from the user.
+ */
+function addMessage(text, role, isUser = false) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
-    if (sender === 'System') {
+    if (role === 'System') {
         messageDiv.innerHTML = `<em>${escapeHtml(text)}</em>`;
     } else {
-        messageDiv.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(text)}`;
+        let displayName = role;
+        if (isUser) {
+            displayName = currentUserName;
+        }
+        messageDiv.innerHTML = `<strong>${escapeHtml(displayName)}:</strong> ${escapeHtml(text)}`;
     }
     chatContainer.appendChild(messageDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
+/**
+ * Load conversation history from the server.
+ */
 async function loadHistory() {
     try {
         const response = await fetch('/api/history');
@@ -34,15 +56,49 @@ async function loadHistory() {
         const data = await response.json();
         chatContainer.innerHTML = '';
         for (const msg of data.messages) {
-            let sender = msg.role;
-            if (sender === 'user') sender = 'User';
-            addMessage(msg.content, sender);
+            if (msg.role === 'system') continue; // completely ignore system
+            let role = msg.role;
+            const isUser = (role === 'user');
+            if (isUser) role = 'user';
+            addMessage(msg.content, role, isUser);
         }
     } catch (err) {
         console.error("loadHistory error:", err);
-        addMessage("Failed to load history", "System");
+        addMessage("Failed to load history", "System", false);
     }
 }
+
+/**
+ * Load user persona from the server.
+ */
+async function loadPersona() {
+    try {
+        const resp = await fetch('/api/persona');
+        const persona = await resp.json();
+        if (persona.name && persona.name.trim()) {
+            currentUserName = persona.name.trim();
+        } else {
+            currentUserName = 'User';
+        }
+        console.log(`[Chat] User name set to: ${currentUserName}`);
+    } catch (err) {
+        console.warn('Could not load persona:', err);
+        currentUserName = 'User';
+    }
+}
+
+/**
+ * Update user name from modal (called by persona_modal).
+ * @param {string} newName - New user name.
+ */
+window.updateUserName = function(newName) {
+    if (newName && newName.trim()) {
+        currentUserName = newName.trim();
+        console.log(`[Chat] User name updated to: ${currentUserName}`);
+        // Reload history to update all user messages
+        loadHistory();
+    }
+};
 
 function setSendButtonToStop() {
     sendButton.innerHTML = `<svg class="icon" width="45" height="45"><use href="/assets/icons/icons.svg#icon-stop"></use></svg>`;
@@ -54,6 +110,9 @@ function setSendButtonToSend() {
     sendButton.classList.remove('stop-button');
 }
 
+/**
+ * Send a message to the LLM and handle streaming response.
+ */
 async function sendMessage() {
     if (isGenerating) {
         if (currentController) {
@@ -70,7 +129,12 @@ async function sendMessage() {
     const text = textarea.value.trim();
     if (!text) return;
 
-    addMessage(text, 'user');
+    let worldState = null;
+    if (window.worldStatePanel && typeof window.worldStatePanel.getCurrentState === 'function') {
+        worldState = window.worldStatePanel.getCurrentState();
+    }
+
+    addMessage(text, 'user', true);
     textarea.value = '';
     textarea.style.height = 'auto';
 
@@ -84,7 +148,10 @@ async function sendMessage() {
         const response = await fetch('/api/send/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: text }),
+            body: JSON.stringify({
+                text: text,
+                world_state: worldState
+            }),
             signal: currentController.signal
         });
 
@@ -112,15 +179,13 @@ async function sendMessage() {
         }
     } catch (err) {
         if (err.name === 'AbortError') {
-            // User pressed Stop – server already saved partial reply
-            // Reload history to display saved content
             await loadHistory();
             if (!accumulatedReply) {
-                addMessage('[Generation stopped]', 'System');
+                addMessage('[Generation stopped]', 'System', false);
             }
         } else {
             console.error("sendMessage error:", err);
-            addMessage("Error: " + err.message, "System");
+            addMessage("Error: " + err.message, "System", false);
         }
     } finally {
         isGenerating = false;
@@ -137,4 +202,8 @@ textarea.addEventListener('keydown', (e) => {
     }
 });
 
-loadHistory();
+// Load persona and history on startup
+(async function init() {
+    await loadPersona();
+    await loadHistory();
+})();

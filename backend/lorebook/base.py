@@ -5,7 +5,7 @@ from abc import ABC
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .storage import LorebookStorage
+    from ..storage.lorebook_storage import LorebookStorage
 
 
 class BaseLorebookManager(ABC):

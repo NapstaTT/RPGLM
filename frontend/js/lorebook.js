@@ -58,21 +58,6 @@ class LorebookUI {
         });
     }
 
-    attachGlobalButton() {
-        let btn = document.getElementById('open-lorebook-btn');
-        if (!btn) {
-            btn = document.createElement('button');
-            btn.id = 'open-lorebook-btn';
-            btn.textContent = '📖 Lorebook';
-            btn.style.position = 'fixed';
-            btn.style.bottom = '20px';
-            btn.style.right = '20px';
-            btn.style.zIndex = '1000';
-            document.body.appendChild(btn);
-        }
-        btn.addEventListener('click', () => this.open());
-    }
-
     async open() {
         await this.loadData();
         this.switchTab(this.currentTab);

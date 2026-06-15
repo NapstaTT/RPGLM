@@ -15,7 +15,7 @@
   </head>
   <body class="main-body">
     <header class="main-header">
-      <button class="menu-button">
+      <button class="menu-button" id="settings-btn">
         <svg class="icon" width="45" height="45">
           <use href="/assets/icons/icons.svg#icon-bars"></use>
         </svg>
@@ -28,7 +28,7 @@
       <svg class="logo">
         <use href="/assets/icons/icons.svg#icon-battery-car"></use>
       </svg>
-      <button class="menu-button">
+      <button class="menu-button" id="persona-btn">
         <svg class="icon" width="45" height="45">
           <use href="/assets/icons/icons.svg#icon-portrait"></use>
         </svg>
@@ -60,10 +60,9 @@
     </footer>
     <script src="/js/chat.js"></script>
     <script src="/js/lorebook.js"></script>
-    <script>
-      document.getElementById('lorebook-open-btn').addEventListener('click', () => {
-        if (window.lorebookUI) window.lorebookUI.open();
-      });
-    </script>
+    <script src="/js/world_state_panel.js"></script>
+    <script src="/js/settings_modal.js"></script>
+    <script src="/js/prompts_modal.js"></script>
+    <script src="/js/persona_modal.js"></script>
   </body>
 </html>

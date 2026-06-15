@@ -1,8 +1,8 @@
 """Manager for location entities."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from .base import BaseLorebookManager
-from .storage import LorebookStorage
+from ..storage.lorebook_storage import LorebookStorage
 
 
 class LocationManager(BaseLorebookManager):
@@ -33,30 +33,28 @@ class LocationManager(BaseLorebookManager):
             if entry.get("parent_id") == loc_id:
                 entry["parent_id"] = None
 
+    async def add_character_to_location(self, location_id: str, character_id: str) -> None:
+        """Add a character to a location's list."""
+        async with self._storage._data_lock:
+            locations = self._get_collection()
+            for loc in locations:
+                if loc["id"] == location_id:
+                    if "characters_on_location" not in loc:
+                        loc["characters_on_location"] = []
+                    if character_id not in loc["characters_on_location"]:
+                        loc["characters_on_location"].append(character_id)
+                        self._storage._schedule_save()
+                    return
+            raise ValueError(f"Location {location_id} not found")
 
-async def add_character_to_location(self, location_id: str, character_id: str) -> None:
-    """Add a character to a location's list."""
-    async with self._storage._data_lock:
-        locations = self._get_collection()
-        for loc in locations:
-            if loc["id"] == location_id:
-                if "characters_on_location" not in loc:
-                    loc["characters_on_location"] = []
-                if character_id not in loc["characters_on_location"]:
-                    loc["characters_on_location"].append(character_id)
-                    self._storage._schedule_save()
-                return
-        raise ValueError(f"Location {location_id} not found")
-
-
-async def remove_character_from_location(self, location_id: str, character_id: str) -> None:
-    """Remove a character from a location's list."""
-    async with self._storage._data_lock:
-        locations = self._get_collection()
-        for loc in locations:
-            if loc["id"] == location_id:
-                if character_id in loc.get("characters_on_location", []):
-                    loc["characters_on_location"].remove(character_id)
-                    self._storage._schedule_save()
-                return
-        raise ValueError(f"Location {location_id} not found")
+    async def remove_character_from_location(self, location_id: str, character_id: str) -> None:
+        """Remove a character from a location's list."""
+        async with self._storage._data_lock:
+            locations = self._get_collection()
+            for loc in locations:
+                if loc["id"] == location_id:
+                    if character_id in loc.get("characters_on_location", []):
+                        loc["characters_on_location"].remove(character_id)
+                        self._storage._schedule_save()
+                    return
+            raise ValueError(f"Location {location_id} not found")

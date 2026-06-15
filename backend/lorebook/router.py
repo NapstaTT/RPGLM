@@ -14,9 +14,11 @@ def get_managers(request: Request):
     return request.app.state.lorebook_managers
 
 
+# Locations
 @router.get("/locations")
 async def get_locations(request: Request):
     return await get_managers(request)["locations"].get_all()
+
 
 @router.post("/locations")
 async def create_location(data: dict, request: Request):
@@ -25,12 +27,14 @@ async def create_location(data: dict, request: Request):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+
 @router.put("/locations/{loc_id}")
 async def update_location(loc_id: str, data: dict, request: Request):
     try:
         return await get_managers(request)["locations"].update(loc_id, data)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
 
 @router.delete("/locations/{loc_id}")
 async def delete_location(loc_id: str, request: Request):

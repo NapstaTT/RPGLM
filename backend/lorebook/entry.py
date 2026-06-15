@@ -2,7 +2,7 @@
 
 from typing import Dict
 from .base import BaseLorebookManager
-from .storage import LorebookStorage
+from ..storage.lorebook_storage import LorebookStorage
 
 
 class EntryManager(BaseLorebookManager):
