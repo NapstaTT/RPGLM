@@ -53,3 +53,105 @@ Same as before.
 export LLM_BASE_URL="http://127.0.0.1:5001"
 export WORLD_ID="my_campaign"
 python run.py
+```
+
+Open `http://localhost:8000`.
+
+---
+
+## New Features in Detail
+
+### World State Panel
+- Appears automatically on the right side of the screen.
+- Dropdowns for **Location** (from lorebook) and **Active Character** (from lorebook).
+- Free‑text **Time** field.
+- The selected state is attached to every user message (`world_state` field in `timeline.jsonl`).
+- On page load, the panel loads the last used world state from history.
+
+### Macros
+- Supported macros: `{{user_persona}}`, `{{character_description}}`, `{{location_description}}`, `{{world_map}}`, `{{history}}`, `{{scenario}}`, `{{system_prompt}}`.
+- Conditional blocks: `{{#if var}}...{{/if}}` – the block is kept only if the variable exists and is truthy.
+- Implemented in `backend/macros/macros_service.py`.
+
+### Persona
+- Stored in `data/worlds/<WORLD_ID>/persona.json`.
+- Edit via the **portrait icon** in the header.
+- Chat displays the persona’s `name` instead of “User” for all user messages.
+
+### Prompt Templates Editor
+- Click the **settings icon** (three bars) in the header → “Edit Prompts”.
+- Three tabs: Narrator, Character, Permutation.
+- Each has:
+  - **Template** – a string with macros and `{{#if}}`.
+  - **Main Prompt** – the fixed instruction appended after the template.
+- Changes are saved immediately to `prompts.json` (backups kept).
+- (Integration with LLM will be added in v0.5.)
+
+---
+
+## Project Structure (v0.4.5)
+
+```
+RPGLM/
+├── backend/
+│   ├── main.py
+│   ├── context/                  # ContextBuilder (placeholder)
+│   ├── generation/               # Orchestrator (placeholder)
+│   ├── llm/                      # KoboldCppClient
+│   ├── lorebook/                 # Full lorebook logic
+│   ├── macros/                   # MacroService
+│   ├── managers/                 # PersonaManager, PromptsManager
+│   ├── parsers/                  # ResponseParser (placeholder)
+│   ├── prompts/                  # default_prompts.json
+│   ├── storage/                  # TimelineStorage, LorebookStorage, PersonaStorage, PromptsStorage
+│   └── utils/                    # world_state helpers
+├── frontend/
+│   ├── index.html
+│   ├── css/                      # styles.css, lorebook.css
+│   ├── js/                       # chat.js, lorebook.js, world_state_panel.js, persona_modal.js, settings_modal.js, prompts_modal.js
+│   └── assets/icons/
+├── data/worlds/default/
+│   ├── timeline.jsonl
+│   ├── timeline.tmp.jsonl
+│   ├── lorebook.json
+│   ├── persona.json
+│   ├── prompts.json
+│   ├── backups/
+│   ├── lorebook_backups/
+│   └── persona_backups/
+├── run.py
+└── README.md
+```
+
+---
+
+## API Endpoints (added in v0.4.5)
+
+| Method | Path                         | Description                               |
+|--------|------------------------------|-------------------------------------------|
+| GET    | `/api/world_state/current`   | Return last saved world state             |
+| POST   | `/api/rollback`              | Delete last message and restore previous state |
+| GET    | `/api/persona`               | Get user persona (name, description)      |
+| PUT    | `/api/persona`               | Update user persona                       |
+| GET    | `/api/prompts`               | Get templates and main prompts            |
+| PUT    | `/api/prompts`               | Update templates and/or main prompts      |
+
+All existing lorebook endpoints (under `/lorebook`) remain unchanged.
+
+---
+
+## Known limitations (v0.4.5)
+
+- The new prompt templates and macro system are **not yet used** for LLM generation – they will be integrated in v0.5.
+- World state affects only saved messages, not yet the LLM context.
+- No automatic keyword‑based activation of lorebook entries.
+- No RAG or large‑entry handling.
+
+---
+
+## Next steps (v0.5)
+
+- Implement `ContextBuilder` and `GenerationOrchestrator`.
+- Actually use prompt templates, macros, world state, persona, and lorebook data when calling the LLM.
+- Add sequential generation (narrator → character → …).
+- Support abort and streaming through the orchestrator.
