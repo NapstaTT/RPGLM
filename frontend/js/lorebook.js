@@ -57,6 +57,14 @@ class LorebookUI {
             if (e.key === 'Escape' && this.isOpen()) this.close();
         });
     }
+    attachGlobalButton() {
+        const btn = document.getElementById('lorebook-open-btn');
+        if (btn) {
+            btn.addEventListener('click', () => this.open());
+        } else {
+            console.warn('Lorebook button (#lorebook-open-btn) not found');
+        }
+    }
 
     async open() {
         await this.loadData();

@@ -1,8 +1,8 @@
 {
     "version": 1,
     "templates": {
-        "narrator": "{{#if system_prompt}}{{system_prompt}}\n{{/if}}{{#if user_persona}}User persona: {{user_persona}}\n{{/if}}{{#if character_description}}Active character: {{character_description}}\n{{/if}}{{#if location_description}}Location: {{location_description}}\n{{/if}}{{#if world_map}}Known locations: {{world_map}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}Conversation history:\n{{history}}{{/if}}",
-        "character": "{{#if character_description}}{{character_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}",
+        "narrator": "{{#if system_prompt}}{{system_prompt}}\n{{/if}}{{#if activated_entries}}Activated lore:\n{{activated_entries}}\n{{/if}}{{#if user_persona}}{{user}}: {{user_persona}}\n{{/if}}{{#if character_description}}Character on set: {{character_description}}\n{{/if}}{{#if location_description}}Current location: {{location_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}{{history}}{{/if}}",
+        "character": "{{#if system_prompt}}{{system_prompt}}\n{{/if}}{{#if activated_entries}}Activated lore:\n{{activated_entries}}\n{{/if}}{{#if user_persona}}{{user}}: {{user_persona}}\n{{/if}}{{#if character_description}}Character on set: {{character_description}}\n{{/if}}{{#if location_description}}Current location: {{location_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}{{history}}{{/if}}",
         "permutation": "{{#if instruction}}{{instruction}}\n{{/if}}{{#if text}}{{text}}{{/if}}"
     },
     "prompts": {

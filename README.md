@@ -1,35 +1,34 @@
-# RPGLM v0.4.5
+## RPGLM v0.5 BETA
 
-**Version 0.4.5** – World State, Macros, Persona, and Prompt Templates.
+**Version 0.5** – Complete conversational AI with lorebook integration, world state, persona, macro system, and sequential LLM generation.
 
 Built as a student research project (Team No.6).  
-This release adds **persistent world state**, **macro system**, **user persona management**, and **fully editable prompt templates** with conditional macros.  
-The lorebook module is now integrated with chat context (but LLM prompt assembly is ready for v0.5).
+This release integrates **all previously prepared components** into a working pipeline, though some edge cases require hotfixes.
 
 ---
 
-## What’s new in v0.4.5
+## What’s new in v0.5 (BETA)
 
-- **World State Panel** – right‑side panel to set current location, active character, and time string.  
-  The state is saved with every user message and restored on page reload.
-- **Macro Service** – supports `{{macro}}` replacement and conditional blocks `{{#if var}}...{{/if}}`.  
-  Currently used in prompt templates.
-- **User Persona** – separate `persona.json` file (name + description).  
-  Dedicated modal (portrait icon) to edit persona; the chat displays the user’s name from persona.
-- **Prompt Templates** – `prompts.json` stores three template+prompt pairs: `narrator`, `character`, `permutation`.  
-  Templates support macros and conditional blocks.  
-  A full UI (Settings → Edit Prompts) lets you modify them in‑browser.  
-  (Still not used by the chat – will be integrated in v0.5.)
-- **Codebase refactoring** – clear separation of storage (timeline, lorebook, persona, prompts), macros, managers, and LLM client.
-- **Removed system `init` message** – timeline no longer contains useless system entries.
+- **Full LLM integration** – prompts, macros, world state, persona, lorebook data are all fed into the model.
+- **Sequential generation** – narrator writes a scene, then each character speaks in turn (optional).
+- **Retry on invalid character** – if LLM invents a non‑existent character name, the system cuts off and asks for correction.
+- **Stop sequences** – `stop=["###", "\n{{user}}:", "\n**{{user}}:**"]` prevents the model from impersonating the user.
+- **Improved UI** – persona modal, world state panel, settings with prompt editor, message menu (rollback).
+- **Robust storage** – timeline (JSONL), lorebook (JSON), persona, prompts, all with atomic writes and backups.
+- **Abort support** – user can stop generation at any time; partial results are saved.
 
 ---
 
-## What remains for v0.5
+## Known Issues & Limitations (BETA)
 
-- Connect the prompt templates to real LLM generation (`ContextBuilder` + `GenerationOrchestrator`).
-- Automatic character/location activation based on keywords.
-- Lorebook entries insertion into prompt (depth, position, activation logic).
+- **KoboldCPP compatibility** – the client uses the OpenAI‑compatible endpoint (`/v1/chat/completions`). Some KoboldCPP builds may have quirks with `stop` arrays.  
+  **Workaround:** set `stop` as a string rather than a list in `llm_settings`.
+- **Character phase** may not trigger reliably; sometimes the LLM stops early or fails to switch context.
+- **Retry logic** on invalid characters is basic – may loop indefinitely if LLM consistently invents names.
+- **Rollback** only deletes the last message; does not handle editing or restoring arbitrary states.
+- **No streaming** of character responses – the user sees a loading spinner until all messages are generated.
+- **Memory usage** – the entire timeline is loaded; large histories may impact performance.
+- **No automatic keyword‑based activation** of lorebook entries (planned for v0.6).
 
 ---
 
@@ -59,56 +58,55 @@ Open `http://localhost:8000`.
 
 ---
 
-## New Features in Detail
+## How it works (simplified)
 
-### World State Panel
-- Appears automatically on the right side of the screen.
-- Dropdowns for **Location** (from lorebook) and **Active Character** (from lorebook).
-- Free‑text **Time** field.
-- The selected state is attached to every user message (`world_state` field in `timeline.jsonl`).
-- On page load, the panel loads the last used world state from history.
-
-### Macros
-- Supported macros: `{{user_persona}}`, `{{character_description}}`, `{{location_description}}`, `{{world_map}}`, `{{history}}`, `{{scenario}}`, `{{system_prompt}}`.
-- Conditional blocks: `{{#if var}}...{{/if}}` – the block is kept only if the variable exists and is truthy.
-- Implemented in `backend/macros/macros_service.py`.
-
-### Persona
-- Stored in `data/worlds/<WORLD_ID>/persona.json`.
-- Edit via the **portrait icon** in the header.
-- Chat displays the persona’s `name` instead of “User” for all user messages.
-
-### Prompt Templates Editor
-- Click the **settings icon** (three bars) in the header → “Edit Prompts”.
-- Three tabs: Narrator, Character, Permutation.
-- Each has:
-  - **Template** – a string with macros and `{{#if}}`.
-  - **Main Prompt** – the fixed instruction appended after the template.
-- Changes are saved immediately to `prompts.json` (backups kept).
-- (Integration with LLM will be added in v0.5.)
+1. **User sends a message** – together with current world state (location, active character, time).
+2. **Orchestrator** builds prompt via `ContextBuilder` using the selected prompt template (`narrator`).
+3. **LLM generates narrative** – can contain `**CharacterName:**` tags.
+4. **Response parser** splits the text into narrative and character blocks.  
+   - If an invalid character name appears, the system retries after cutting off the response at that point.  
+   - Valid character blocks are saved as separate messages.
+5. **For each character block**, orchestrator optionally calls the LLM again (character phase) to generate a detailed reply, stopping at `**narrative:**`.
+6. All generated messages are saved to `timeline.jsonl` with proper versions and world state.
+7. The frontend reloads the history and displays the conversation.
 
 ---
 
-## Project Structure (v0.4.5)
+## API Endpoints
+
+All endpoints from v0.4.5 remain. New or modified:
+
+| Method | Path                         | Description                               |
+|--------|------------------------------|-------------------------------------------|
+| POST   | `/api/send/stream`           | Main streaming endpoint (uses orchestrator) |
+| POST   | `/api/send`                  | Non‑streaming fallback (also uses orchestrator) |
+| POST   | `/api/abort`                 | Stops current generation                  |
+| POST   | `/api/rollback`              | Deletes last message and restores world state |
+
+All lorebook (`/lorebook/...`) and persona (`/api/persona`), prompts (`/api/prompts`) endpoints unchanged.
+
+---
+
+## Project Structure (v0.5)
 
 ```
 RPGLM/
 ├── backend/
-│   ├── main.py
-│   ├── context/                  # ContextBuilder (placeholder)
-│   ├── generation/               # Orchestrator (placeholder)
-│   ├── llm/                      # KoboldCppClient
-│   ├── lorebook/                 # Full lorebook logic
-│   ├── macros/                   # MacroService
-│   ├── managers/                 # PersonaManager, PromptsManager
-│   ├── parsers/                  # ResponseParser (placeholder)
-│   ├── prompts/                  # default_prompts.json
-│   ├── storage/                  # TimelineStorage, LorebookStorage, PersonaStorage, PromptsStorage
-│   └── utils/                    # world_state helpers
+│   ├── main.py                     # FastAPI app with all endpoints
+│   ├── context/                    # ContextBuilder – builds prompt from data
+│   ├── generation/                 # GenerationOrchestrator – sequential LLM calls
+│   ├── llm/                        # KoboldCppClient (OpenAI‑compatible)
+│   ├── lorebook/                   # Full lorebook logic (locations, characters, entries)
+│   ├── macros/                     # MacroService ({{var}}, {{#if var}})
+│   ├── managers/                   # PersonaManager, PromptsManager
+│   ├── parsers/                    # ResponseParser (narrator, character modes)
+│   ├── prompts/                    # default_prompts.json
+│   ├── storage/                    # TimelineStorage, LorebookStorage, PersonaStorage, PromptsStorage
+│   └── utils/                      # world_state helpers
 ├── frontend/
 │   ├── index.html
-│   ├── css/                      # styles.css, lorebook.css
-│   ├── js/                       # chat.js, lorebook.js, world_state_panel.js, persona_modal.js, settings_modal.js, prompts_modal.js
+│   ├── css/                        # styles.css, lorebook.css
+│   ├── js/                         # chat.js, lorebook.js, world_state_panel.js, persona_modal.js, settings_modal.js, prompts_modal.js, message_menu.js
 │   └── assets/icons/
 ├── data/worlds/default/
 │   ├── timeline.jsonl
@@ -116,42 +114,31 @@ RPGLM/
 │   ├── lorebook.json
 │   ├── persona.json
 │   ├── prompts.json
-│   ├── backups/
-│   ├── lorebook_backups/
-│   └── persona_backups/
+│   ├── backups/                    # timeline backups
+│   ├── lorebook_backups/           # lorebook backups (max 5)
+│   └── persona_backups/            # persona backups (max 2)
 ├── run.py
 └── README.md
 ```
 
 ---
 
-## API Endpoints (added in v0.4.5)
+## Hotfix notes (v0.5.1 planned)
 
-| Method | Path                         | Description                               |
-|--------|------------------------------|-------------------------------------------|
-| GET    | `/api/world_state/current`   | Return last saved world state             |
-| POST   | `/api/rollback`              | Delete last message and restore previous state |
-| GET    | `/api/persona`               | Get user persona (name, description)      |
-| PUT    | `/api/persona`               | Update user persona                       |
-| GET    | `/api/prompts`               | Get templates and main prompts            |
-| PUT    | `/api/prompts`               | Update templates and/or main prompts      |
-
-All existing lorebook endpoints (under `/lorebook`) remain unchanged.
+- **Fix KoboldCPP `stop` parameter** – ensure `stop` is passed as a single string in settings to avoid `TypeError`.
+- **Improve retry loop** – limit retries and skip invalid character blocks if they persist.
+- **Add fallback** for when character phase fails – fall back to narrative-only response.
+- **Optimise memory** – implement pagination or rolling window for history.
 
 ---
 
-## Known limitations (v0.4.5)
+## Next steps (v0.6)
 
-- The new prompt templates and macro system are **not yet used** for LLM generation – they will be integrated in v0.5.
-- World state affects only saved messages, not yet the LLM context.
-- No automatic keyword‑based activation of lorebook entries.
-- No RAG or large‑entry handling.
+- **Permutations** – rewrite messages in different styles.
+- **True streaming** of character responses (token‑by‑token).
+- **RAG** for large entries.
+- **Multi‑world switching**.
 
 ---
 
-## Next steps (v0.5)
-
-- Implement `ContextBuilder` and `GenerationOrchestrator`.
-- Actually use prompt templates, macros, world state, persona, and lorebook data when calling the LLM.
-- Add sequential generation (narrator → character → …).
-- Support abort and streaming through the orchestrator.
+**Disclaimer:** This is a **BETA** release. While the core logic is functional, llm request logic still under construction and debugging. RPGLM still requires many hotfixes

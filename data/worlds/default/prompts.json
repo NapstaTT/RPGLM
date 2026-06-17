@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "templates": {
+    "narrator": "{{#if system_prompt}}{{system_prompt}}\n{{/if}}{{#if user_persona}}{{user}}: {{user_persona}}\n{{/if}}{{#if character_description}}Character on set: {{character_description}}\n{{/if}}{{#if location_description}}Current location: {{location_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}{{history}}{{/if}}",
+    "character": "{{#if system_prompt}}{{system_prompt}}\n{{#if character_description}}{{character_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if user_persona}}{{user}}: {{user_persona}}\n{{/if}}{{#if location_description}}Current location: {{location_description}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if history}}{{history}}{{/if}}",
+    "permutation": "{{#if instruction}}{{instruction}}\n{{/if}}{{#if text}}{{text}}{{/if}}"
+  },
+  "prompts": {
+    "narrator": "system",
+    "character": "",
+    "permutation": "Rewrite the following text in a different style while preserving its meaning."
+  }
+}
